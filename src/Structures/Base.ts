@@ -1,4 +1,5 @@
-import Vue from 'vue';
+import { reactive } from 'vue';
+import { set as vueSet } from 'vue-demi';
 import {autobind} from '../utils';
 import Request from '../HTTP/Request';
 import Response from '../HTTP/Response';
@@ -25,6 +26,7 @@ import uniqueId from 'lodash/uniqueId';
 import {AxiosRequestConfig, Method} from 'axios';
 import Model from './Model';
 import {BaseResponse} from '../HTTP/BaseResponse';
+export const __ = Symbol('__');
 
 export enum RequestOperation {
     REQUEST_CONTINUE  = 0,
@@ -40,12 +42,27 @@ abstract class Base {
     static readonly REQUEST_REDUNDANT = RequestOperation.REQUEST_REDUNDANT;
     static readonly REQUEST_SKIP      = RequestOperation.REQUEST_SKIP;
 
+    protected [__]: any = reactive({});
+
     readonly _uid!: string;
     private readonly _listeners!: Record<string, Listener[]>;
     private readonly _options!: Record<string, any>;
 
     protected constructor(options: Options) {
         autobind(this);
+
+        [
+            '_listeners', '_options'
+        ].forEach(property => Object.defineProperty(this, property, {
+            enumerable: true,
+            configurable: true,
+            get () {
+                return this[__][property]
+            },
+            set (value) {
+                vueSet(this[__], property, value)
+            }
+        }))
 
         // Define an automatic unique ID. This is primarily to distinguish
         // between multiple instances of the same name and data.
@@ -56,8 +73,8 @@ abstract class Base {
             writable:     false,
         });
 
-        Vue.set(this, '_listeners', {});  // Event listeners
-        Vue.set(this, '_options',   {});  // Internal option store
+        vueSet(this, '_listeners', {});  // Event listeners
+        vueSet(this, '_options',   {});  // Internal option store
 
         this.setOptions(options);
         this.boot();
@@ -218,7 +235,7 @@ abstract class Base {
      * @param {...Object} options One or more objects of options.
      */
     setOptions(...options: Options[]): void {
-        Vue.set(this, '_options', defaultsDeep(
+        vueSet(this, '_options', defaultsDeep(
             {},
             ...options,                 // Given options
             this.options(),             // Instance defaults
